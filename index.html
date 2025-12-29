@@ -1,120 +1,112 @@
 
-<html>
+<!DOCTYPE html>
+<html lang="ko">
 <head>
-<meta charset='utf-8'>
-<meta name='viewport' content='width=device-width, initial-scale=1.0'>
-<style>
-body { margin:0; font-family:Inter,Apple SD Gothic Neo,sans-serif; background:#F9FAFB; }
-#wrap { display:flex; height:100vh; }
-#side { width:320px; padding:20px; border-right:1px solid #E5E7EB; }
-.card { background:#fff; border:1px solid #E5E7EB; border-radius:12px; padding:14px; margin-bottom:14px; }
-input,button { width:100%; padding:10px; border-radius:10px; border:1px solid #E5E7EB; }
-button { background:#111827; color:#fff; cursor:pointer; }
-#plot { flex:1; }
-.suggest { padding:6px 8px; border:1px solid #E5E7EB; border-radius:8px; margin-top:4px; cursor:pointer; background:#fff; }
-.label { font-size:12px; color:#6B7280; }
-.value { font-weight:600; margin-bottom:6px; }
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
 
-/* ===== 모바일 세로 스크롤 최적화 (FINAL) ===== */
-@media (max-width: 768px) {
-  #wrap {
-    flex-direction: column;
-    height: auto;
-  }
+  <title>단지 가격상승률 · 회전률</title>
 
-  #side {
-    width: 100%;
-    border-right: none;
-    border-bottom: 1px solid #E5E7EB;
-  }
+  <script src="https://cdn.plot.ly/plotly-2.30.0.min.js"></script>
+  <script defer src="plot.js"></script>
 
-  #plot {
-    width: 100%;
-    height: 80vh;
-  }
+  <style>
+    html, body {
+      margin: 0;
+      padding: 0;
+      width: 100%;
+      max-width: 100%;
+      overflow-x: hidden;   /* 🔴 가로 잘림 차단 */
+      font-family: -apple-system, BlinkMacSystemFont, "Apple SD Gothic Neo",
+                   "Noto Sans KR", Arial, sans-serif;
+      background: #f6f7f9;
+    }
 
-  .plotly-graph-div {
-    width: 100% !important;
-    height: 100% !important;
-  }
-}
+    #wrap {
+      display: flex;
+      min-height: 100vh;
+    }
 
-</style>
+    #side {
+      background: #fff;
+      padding: 16px;
+      box-sizing: border-box;
+    }
+
+    #plot {
+      width: 100%;
+      max-width: 100%;
+      box-sizing: border-box;
+      overflow-x: hidden;
+    }
+
+    .card {
+      background: #fff;
+      border-radius: 12px;
+      padding: 16px;
+      margin-bottom: 16px;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+    }
+
+    input, button {
+      width: 100%;
+      padding: 12px;
+      font-size: 15px;
+      border-radius: 8px;
+      border: 1px solid #ddd;
+      box-sizing: border-box;
+    }
+
+    button {
+      background: #111827;
+      color: #fff;
+      border: none;
+      cursor: pointer;
+      margin-top: 8px;
+    }
+
+    /* 데스크톱 */
+    @media (min-width: 769px) {
+      #wrap {
+        flex-direction: row;
+      }
+      #side {
+        width: 320px;
+      }
+    }
+
+    /* 모바일 */
+    @media (max-width: 768px) {
+      #wrap {
+        flex-direction: column;   /* 🔴 세로 스크롤 */
+      }
+      #side {
+        width: 100%;
+      }
+      #plot {
+        min-height: 65vh;         /* 🔴 그래프 아래로 */
+      }
+    }
+  </style>
 </head>
+
 <body>
-<div id="wrap">
-  <div id="side">
-    <div class="card">
-      <h3>단지 검색</h3>
-      <input id="searchBox" placeholder="단지명 입력" oninput="suggest()"/>
-      <div id="suggestions"></div>
-      <button onclick="search()">검색</button>
-      <button onclick="reset()" style="margin-top:6px;background:#fff;color:#111827;">리셋</button>
+  <div id="wrap">
+    <div id="side">
+      <div class="card">
+        <h3>단지 검색</h3>
+        <input type="text" placeholder="단지명 입력" />
+        <button>검색</button>
+        <button style="background:#fff;color:#111;border:1px solid #ccc;">리셋</button>
+      </div>
+
+      <div class="card">
+        <h3>선택 단지 정보</h3>
+        <p>단지를 검색하세요</p>
+      </div>
     </div>
-    <div class="card">
-      <h3>선택 단지 정보</h3>
-      <div id="info"><span class="label">단지를 검색하세요</span></div>
-    </div>
+
+    <div id="plot"></div>
   </div>
-  <div id="plot"><div>                        <script type="text/javascript">window.PlotlyConfig = {MathJaxConfig: 'local'};</script>
-        <script defer src="https://cdn.plot.ly/plotly-2.4.1.min.js"></script>
-<script defer src="plot.js"></script>                <div id="fbb5ddcb-85fb-45cc-aa94-644009d70ae9" class="plotly-graph-div" style="height:100%; width:100%;"></div>            <script type="text/javascript"></script>        </div></div>
-</div>
-
-<script>
-function getNames() {
-  const gd = document.querySelector(".js-plotly-plot");
-  const s = new Set();
-  gd.data.forEach(t => t.customdata && t.customdata.forEach(d => s.add(d[0])));
-  return Array.from(s);
-}
-
-function suggest() {
-  const q = searchBox.value.trim();
-  const box = document.getElementById("suggestions");
-  box.innerHTML = "";
-  if (!q) return;
-  getNames().filter(n=>n.includes(q)).slice(0,6).forEach(n=>{
-    const d=document.createElement("div");
-    d.className="suggest"; d.textContent=n;
-    d.onclick=()=>{searchBox.value=n; box.innerHTML=""; search();};
-    box.appendChild(d);
-  });
-}
-
-function search() {
-  const q = searchBox.value.trim();
-  const gd = document.querySelector(".js-plotly-plot");
-  gd.data.forEach((tr,ti)=>{
-    if(!tr.customdata) return;
-    let op=[], lw=[], lc=[]; let info=null;
-    tr.customdata.forEach(d=>{
-      if(d[0].includes(q)){op.push(1); lw.push(2.5); lc.push("#111827"); info=d;}
-      else{op.push(0.35); lw.push(0); lc.push("rgba(0,0,0,0)");}
-    });
-    Plotly.restyle(gd,{"marker.opacity":[op],"marker.line.width":[lw],"marker.line.color":[lc]},[ti]);
-    if(info) document.getElementById("info").innerHTML=`
-      <div class='label'>단지명</div><div class='value'>${info[0]}</div>
-      <div class='label'>지역</div><div class='value'>${info[1]}</div>
-      <div class='label'>군집</div><div class='value'>${info[2]}</div>
-      <div class='label'>가격상승률</div><div class='value'>${info[3].toFixed(2)}%</div>
-      <div class='label'>연평균 회전률</div><div class='value'>${info[4].toFixed(2)}</div>
-      <div class='label'>세대수</div><div class='value'>${info[5]}</div>
-      <div class='label'>연평균 거래</div><div class='value'>${info[6].toFixed(1)}건</div>
-      <div class='label'>최소 거래</div><div class='value'>${info[7]}만원 (${info[8]})</div>
-      <div class='label'>최대 거래</div><div class='value'>${info[9]}만원 (${info[10]})</div>`;
-  });
-}
-
-function reset() {
-  const gd = document.querySelector(".js-plotly-plot");
-  gd.data.forEach((tr,ti)=>{
-    if(!tr.customdata) return;
-    const n=tr.customdata.length;
-    Plotly.restyle(gd,{"marker.opacity":[Array(n).fill(0.85)],"marker.line.width":[Array(n).fill(0)],"marker.line.color":[Array(n).fill("rgba(0,0,0,0)")]} ,[ti]);
-  });
-  info.innerHTML="<span class='label'>단지를 검색하세요</span>";
-}
-</script>
 </body>
 </html>
