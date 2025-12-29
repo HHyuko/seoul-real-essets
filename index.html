@@ -1,0 +1,136 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1"/>
+<script src="https://cdn.plot.ly/plotly-2.30.0.min.js"></script>
+<style>
+body{margin:0;font-family:-apple-system,BlinkMacSystemFont,"Apple SD Gothic Neo","Noto Sans KR",sans-serif;background:#f9fafb}
+#side{padding:12px;border-bottom:1px solid #e5e7eb;background:#fff}
+#plot{width:100%;aspect-ratio:1/1;max-height:90vw}
+#info{padding:14px;background:#fff;border-top:1px solid #e5e7eb}
+.card{background:#f8fafc;border-radius:14px;padding:14px 16px;box-shadow:0 6px 18px rgba(0,0,0,.08)}
+.card h4{margin:0 0 8px 0;font-size:16px}
+.grid{display:grid;grid-template-columns:1fr 1fr;gap:6px 12px;font-size:14px}
+.label{color:#6b7280}
+.value{font-weight:600;color:#111827}
+.controls{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+input,button{width:100%;padding:10px;margin-top:6px;border-radius:10px;border:1px solid #ddd}
+button{background:#111827;color:#fff;font-weight:600}
+button.secondary{background:#f3f4f6;color:#111}
+</style>
+</head>
+<body>
+
+<div id="side">
+  <h3>단지 검색</h3>
+  <input id="q" placeholder="단지명 일부 입력"/>
+  <div class="controls">
+    <button id="btnSearch">검색</button>
+    <button id="btnReset" class="secondary">리셋</button>
+  </div>
+</div>
+
+<div id="plot"></div>
+
+<div id="info">
+  <div class="card"><div style="color:#9ca3af">점 클릭 시 단지 정보가 표시됩니다.</div></div>
+</div>
+
+<script>
+const BASE_SIZE = 7;
+const ACTIVE_SIZE = BASE_SIZE * 3;
+
+/* 이 파일은 기존 data 변수를 그대로 사용합니다 */
+const data = window.data;
+
+const layout = {
+  dragmode: false,
+  xaxis: { fixedrange: true },
+  yaxis: { fixedrange: true },
+  margin: { t: 20, l: 40, r: 20, b: 40 }
+};
+
+Plotly.newPlot('plot', data, layout, {displayModeBar:false});
+
+function resetMarkers(){
+  Plotly.restyle('plot', {
+    'marker.size':[Array(data[0].x.length).fill(BASE_SIZE)],
+    'marker.opacity':[1],
+    'marker.line.width':[0]
+  }, [0]);
+}
+
+function renderInfo(d){
+  document.getElementById('info').innerHTML = `
+    <div class="card">
+      <h4>${d[0]}</h4>
+      <div class="grid">
+        <div class="label">주소</div><div class="value">${d[1]}</div>
+        <div class="label">총세대수</div><div class="value">${d[2]}</div>
+        <div class="label">가격상승률</div><div class="value">${d[3]}%</div>
+        <div class="label">최소</div>
+        <div class="value">${Number(d[4]).toLocaleString()}만원 (${d[6]})</div>
+        <div class="label">최대</div>
+        <div class="value">${Number(d[5]).toLocaleString()}만원 (${d[7]})</div>
+      </div>
+    </div>
+  `;
+}
+
+const plot = document.getElementById('plot');
+
+plot.on('plotly_click', function(e){
+  resetMarkers();
+  const idx = e.points[0].pointIndex;
+
+  let sizes = Array(data[0].x.length).fill(BASE_SIZE);
+  let lines = Array(data[0].x.length).fill(0);
+
+  sizes[idx] = ACTIVE_SIZE;
+  lines[idx] = 2;
+
+  Plotly.restyle('plot', {
+    'marker.size':[sizes],
+    'marker.line.width':[lines],
+    'marker.line.color':['#000']
+  }, [0]);
+
+  renderInfo(e.points[0].customdata);
+});
+
+document.getElementById('btnSearch').onclick = () => {
+  const q = document.getElementById('q').value.trim();
+  if(!q) return;
+
+  resetMarkers();
+
+  const names = data[0].customdata.map(d=>d[0]);
+  const idx = names.findIndex(n=>n.includes(q));
+  if(idx===-1) return;
+
+  let sizes = Array(names.length).fill(BASE_SIZE);
+  let lines = Array(names.length).fill(0);
+
+  sizes[idx] = ACTIVE_SIZE;
+  lines[idx] = 2;
+
+  Plotly.restyle('plot', {
+    'marker.size':[sizes],
+    'marker.line.width':[lines],
+    'marker.line.color':['#000']
+  }, [0]);
+
+  renderInfo(data[0].customdata[idx]);
+};
+
+document.getElementById('btnReset').onclick = () => {
+  document.getElementById('q').value='';
+  resetMarkers();
+  document.getElementById('info').innerHTML =
+    '<div class="card"><div style="color:#9ca3af">점 클릭 시 단지 정보가 표시됩니다.</div></div>';
+};
+</script>
+
+</body>
+</html>
