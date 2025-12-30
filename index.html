@@ -1,0 +1,166 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8"/>
+<title>가격상승률 vs 연평균 회전률</title>
+<script src="https://cdn.plot.ly/plotly-2.27.0.min.js"></script>
+<style>
+body{font-family:Arial,Helvetica,sans-serif;margin:0;background:#f9fafb}
+#wrap{display:flex;gap:12px;padding:12px}
+#left{flex:1}
+#right{width:300px;background:#fff;border-radius:8px;padding:12px;box-shadow:0 2px 6px rgba(0,0,0,.08)}
+#info .label{font-size:12px;color:#6b7280;margin-top:6px}
+#info .value{font-size:14px;font-weight:600}
+#searchBox{width:100%;padding:8px;margin-bottom:8px}
+.suggest{padding:6px;cursor:pointer}
+.suggest:hover{background:#e5e7eb}
+</style>
+</head>
+<body>
+<div id="wrap">
+  <div id="left">
+    <input id="searchBox" placeholder="단지명 검색" oninput="suggest()"/>
+    <div id="suggestions"></div>
+    <div id="plot" style="height:80vh"></div>
+  </div>
+  <div id="right">
+    <h4>선택 정보</h4>
+    <div id="info">점 또는 단지를 선택하세요</div>
+  </div>
+</div>
+
+<script>
+/*
+data row structure (customdata):
+[0] 단지명
+[1] 지역
+[2] 군집명
+[3] 가격상승률(%)  <-- X축 (확정)
+[4] 연평균회전률    <-- Y축
+[5] 세대수
+[6] 연평균거래건수
+[7] 최소가격
+[8] 최대가격
+[9] 최소시점(yyyymm)
+[10] 최대시점(yyyymm)
+*/
+
+// === 예시 데이터 (구조 유지, 실제 데이터로 교체 가능) ===
+const rows = [
+ ["마곡엠밸리14단지","서울 강서구","중상승",7.67,0.05,1200,28,123000,168000,202201,202510],
+ ["관악산휴먼시아","서울 관악구","중상승",42.67,0.04,1336,22,57000,76200,202203,202509],
+ ["그랑빌","서울 노원구","상승",43.67,0.055,1346,25,68000,99700,202202,202510],
+ ["도봉한신","서울 도봉구","고상승",84.33,0.03,2654,31,45500,64700,202302,202510]
+];
+
+const trace = {
+  type:"scatter",
+  mode:"markers",
+  x: rows.map(r=>r[3]),   // 가격상승률(%)
+  y: rows.map(r=>r[4]),   // 연평균 회전률
+  customdata: rows,
+  marker:{
+    size:7,
+    opacity:0.85,
+    color:"#3b82f6",
+    line:{width:0}
+  },
+  hovertemplate:
+    "<b>%{customdata[0]}</b><br>"+
+    "가격상승률: %{customdata[3]:.2f}%<br>"+
+    "연평균회전률: %{customdata[4]:.3f}<extra></extra>"
+};
+
+const layout = {
+  xaxis:{title:"가격상승률 (%)"},
+  yaxis:{title:"연평균 회전률"},
+  margin:{l:60,r:20,t:20,b:60},
+  showlegend:false,
+  clickmode:"event"
+};
+
+Plotly.newPlot("plot",[trace],layout,{
+  responsive:true,
+  scrollZoom:false,   // 줌 완전 차단
+  dragmode:false,
+  displayModeBar:false
+}).then(gd=>{
+
+  function reset(){
+    Plotly.restyle(gd,{
+      "marker.size":[Array(gd.data[0].x.length).fill(7)],
+      "marker.opacity":[Array(gd.data[0].x.length).fill(0.85)],
+      "marker.line.width":[Array(gd.data[0].x.length).fill(0)]
+    });
+  }
+
+  gd.on("plotly_click",ev=>{
+    reset();
+    const i = ev.points[0].pointIndex;
+    const sizes = Array(gd.data[0].x.length).fill(7);
+    const opas  = Array(gd.data[0].x.length).fill(0.35);
+    const lws   = Array(gd.data[0].x.length).fill(0);
+
+    sizes[i]=21;        // 3배 강조
+    opas[i]=1;
+    lws[i]=3;
+
+    Plotly.restyle(gd,{
+      "marker.size":[sizes],
+      "marker.opacity":[opas],
+      "marker.line.width":[lws],
+      "marker.line.color":"#111827"
+    });
+
+    const d = ev.points[0].customdata;
+    document.getElementById("info").innerHTML = `
+      <div class='label'>단지명</div><div class='value'>${d[0]}</div>
+      <div class='label'>지역</div><div class='value'>${d[1]}</div>
+      <div class='label'>군집</div><div class='value'>${d[2]}</div>
+      <div class='label'>가격상승률</div><div class='value'>${d[3].toFixed(2)}%</div>
+      <div class='label'>연평균 회전률</div><div class='value'>${d[4].toFixed(3)}</div>
+      <div class='label'>가격 범위</div>
+      <div class='value'>
+        최소 ${d[7].toLocaleString()}만원 (${d[9]})<br>
+        최대 ${d[8].toLocaleString()}만원 (${d[10]})
+      </div>
+    `;
+  });
+
+  window.getNames = ()=> rows.map(r=>r[0]);
+
+  window.suggest = ()=>{
+    const q = searchBox.value.trim();
+    const box = document.getElementById("suggestions");
+    box.innerHTML="";
+    if(!q) return;
+    getNames().filter(n=>n.includes(q)).slice(0,6).forEach(n=>{
+      const d=document.createElement("div");
+      d.className="suggest";
+      d.textContent=n;
+      d.onclick=()=>{searchBox.value=n; box.innerHTML=""; highlight(n);};
+      box.appendChild(d);
+    });
+  };
+
+  function highlight(name){
+    reset();
+    const idx = rows.findIndex(r=>r[0]===name);
+    if(idx<0) return;
+    const sizes = Array(rows.length).fill(7);
+    const opas  = Array(rows.length).fill(0.35);
+    const lws   = Array(rows.length).fill(0);
+
+    sizes[idx]=21; opas[idx]=1; lws[idx]=3;
+
+    Plotly.restyle(gd,{
+      "marker.size":[sizes],
+      "marker.opacity":[opas],
+      "marker.line.width":[lws],
+      "marker.line.color":"#111827"
+    });
+  }
+});
+</script>
+</body>
+</html>
