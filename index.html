@@ -1,0 +1,148 @@
+
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width, initial-scale=1"/>
+<title>단지 분석 (검색+지역+가격대)</title>
+<script src="https://cdn.plot.ly/plotly-2.30.0.min.js"></script>
+<style>
+body{margin:0;font-family:-apple-system,BlinkMacSystemFont,'Apple SD Gothic Neo','Noto Sans KR',sans-serif}
+.top{padding:12px;border-bottom:1px solid #e5e7eb}
+#plot{height:60vh}
+.bottom{padding:12px;border-top:1px solid #e5e7eb}
+.band{margin-right:6px}
+.band.active{background:#111827;color:#fff}
+</style>
+</head>
+<body>
+
+<div class="top">
+  <input id="search" placeholder="단지명 검색" />
+  <select id="region">
+    <option value="__ALL__">전체 지역</option>
+  </select>
+
+  <div id="bands">
+    <button class="band active" data-band="__ALL__">전체 가격</button>
+    <button class="band" data-band="4억~6억">4억~6억</button>
+    <button class="band" data-band="6억~8억">6억~8억</button>
+    <button class="band" data-band="8억~10억">8억~10억</button>
+    <button class="band" data-band="10억 이상">10억 이상</button>
+  </div>
+</div>
+
+<div id="plot"></div>
+
+<div class="bottom">
+  <div id="info">점을 선택하세요</div>
+</div>
+
+<script>
+/* ================== 기존 데이터 (원본 index.html 그대로 있어야 함) ================== */
+const x = window.xData || [];
+const y = window.yData || [];
+const names = window.names || [];
+const regions = window.regions || [];
+const prices = window.prices || [];
+
+/* ================== 상태 ================== */
+let selectedRegion="__ALL__";
+let selectedPriceBand="__ALL__";
+let searchKeyword="";
+
+const BASE_POINT_SIZE=5;
+const ACTIVE_POINT_SIZE=14;
+
+/* ================== 유틸 ================== */
+const baseIndex=[...Array(x.length).keys()];
+
+function inPriceBand(price, band){
+  if(band==="__ALL__") return true;
+  if(price==null) return true;
+  if(band==="4억~6억") return price>=40000 && price<60000;
+  if(band==="6억~8억") return price>=60000 && price<80000;
+  if(band==="8억~10억") return price>=80000 && price<100000;
+  if(band==="10억 이상") return price>=100000;
+  return true;
+}
+
+function getFilteredIndex(){
+  return baseIndex.filter(i=>{
+    const rOK = selectedRegion==="__ALL__" || (regions[i]||"").includes(selectedRegion);
+    const pOK = inPriceBand(prices[i], selectedPriceBand);
+    const sOK = !searchKeyword || (names[i]||"").includes(searchKeyword);
+    return rOK && pOK && sOK;
+  });
+}
+
+/* ================== 렌더 ================== */
+function render(){
+  const idx=getFilteredIndex();
+
+  const sizes=idx.map(i=> searchKeyword && names[i].includes(searchKeyword) ? ACTIVE_POINT_SIZE : BASE_POINT_SIZE);
+
+  const trace={
+    x:idx.map(i=>x[i]),
+    y:idx.map(i=>y[i]),
+    text:idx.map(i=>names[i]),
+    customdata:idx,
+    mode:"markers",
+    type:"scatter",
+    marker:{
+      size:sizes,
+      opacity:0.85,
+      line:{width:sizes.map(s=>s>BASE_POINT_SIZE?2:0),color:"#000"}
+    }
+  };
+
+  Plotly.react("plot",[trace],{
+    margin:{l:40,r:20,t:10,b:40},
+    xaxis:{title:"연평균 회전률"},
+    yaxis:{title:"가격상승률(%)"}
+  },{responsive:true});
+}
+
+/* ================== 이벤트 ================== */
+document.getElementById("search").addEventListener("input",e=>{
+  searchKeyword=e.target.value.trim();
+  render();
+});
+
+document.getElementById("region").addEventListener("change",e=>{
+  selectedRegion=e.target.value;
+  render();
+});
+
+document.getElementById("bands").addEventListener("click",e=>{
+  if(!e.target.classList.contains("band"))return;
+  document.querySelectorAll(".band").forEach(b=>b.classList.remove("active"));
+  e.target.classList.add("active");
+  selectedPriceBand=e.target.dataset.band;
+  render();
+});
+
+document.getElementById("plot").on("plotly_click",e=>{
+  const i=e.points[0].customdata;
+  document.getElementById("info").innerHTML=
+    "<b>"+names[i]+"</b><br>"+
+    "지역: "+regions[i]+"<br>"+
+    "가격: "+prices[i]+"만원<br>"+
+    "상승률: "+y[i]+"%<br>"+
+    "회전률: "+x[i];
+});
+
+/* ================== 초기화 ================== */
+(function init(){
+  const uniq=[...new Set(regions)];
+  uniq.forEach(r=>{
+    const o=document.createElement("option");
+    o.value=r;o.textContent=r;
+    document.getElementById("region").appendChild(o);
+  });
+  render();
+})();
+</script>
+
+</body>
+</html>
