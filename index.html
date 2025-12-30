@@ -1,0 +1,167 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="utf-8"/>
+<title>가격상승률 vs 연평균 회전률 (모바일)</title>
+<meta name="viewport" content="width=device-width, initial-scale=1"/>
+<script src="https://cdn.plot.ly/plotly-2.27.0.min.js"></script>
+<style>
+body{
+  font-family:-apple-system,BlinkMacSystemFont,"Apple SD Gothic Neo","Noto Sans KR",sans-serif;
+  margin:0;
+  background:#f3f4f6;
+}
+#container{
+  display:flex;
+  flex-direction:column;
+  height:100vh;
+}
+#header{
+  padding:10px 12px;
+  background:#ffffff;
+  border-bottom:1px solid #e5e7eb;
+}
+#header input{
+  width:100%;
+  padding:10px;
+  border-radius:10px;
+  border:1px solid #d1d5db;
+  font-size:14px;
+}
+#plot{
+  flex:1;
+}
+#info{
+  background:#ffffff;
+  padding:12px;
+  border-top:1px solid #e5e7eb;
+  font-size:14px;
+}
+.label{color:#6b7280;font-size:12px;margin-top:6px}
+.value{font-weight:600}
+</style>
+</head>
+<body>
+
+<div id="container">
+  <div id="header">
+    <input id="searchBox" placeholder="단지명 검색"/>
+  </div>
+  <div id="plot"></div>
+  <div id="info">단지를 선택하세요</div>
+</div>
+
+<script>
+/*
+customdata:
+[0] 단지명
+[1] 지역
+[2] 군집
+[3] 가격상승률(%)
+[4] 연평균회전률
+[5] 최소가격
+[6] 최대가격
+[7] 최소시점
+[8] 최대시점
+*/
+
+const rows = [
+ ["마곡엠밸리14단지","서울 강서구","중상승",7.67,0.05,123000,168000,202201,202510],
+ ["관악산휴먼시아","서울 관악구","중상승",42.67,0.04,57000,76200,202203,202509],
+ ["그랑빌","서울 노원구","상승",43.67,0.055,68000,99700,202202,202510],
+ ["도봉한신","서울 도봉구","고상승",84.33,0.03,45500,64700,202302,202510]
+];
+
+const trace = {
+  type:"scatter",
+  mode:"markers",
+  x: rows.map(r=>r[3]),
+  y: rows.map(r=>r[4]),
+  customdata: rows,
+  marker:{
+    size:8,
+    color:"#2563eb",
+    opacity:0.9
+  },
+  hoverinfo:"skip"
+};
+
+const layout = {
+  xaxis:{
+    title:"가격상승률 (%)",
+    automargin:true
+  },
+  yaxis:{
+    title:"연평균 회전률",
+    automargin:true
+  },
+  margin:{l:50,r:20,t:10,b:50},
+  dragmode:false
+};
+
+Plotly.newPlot("plot",[trace],layout,{
+  responsive:true,
+  scrollZoom:false,
+  displayModeBar:false
+}).then(gd=>{
+
+  // 강제 autoscale → 점 누락 방지
+  Plotly.relayout(gd,{
+    "xaxis.autorange":true,
+    "yaxis.autorange":true
+  });
+
+  function reset(){
+    Plotly.restyle(gd,{
+      "marker.size":[Array(rows.length).fill(8)],
+      "marker.opacity":[Array(rows.length).fill(0.9)]
+    });
+  }
+
+  gd.on("plotly_click",ev=>{
+    reset();
+    const i = ev.points[0].pointIndex;
+    const sizes = Array(rows.length).fill(8);
+    const opas = Array(rows.length).fill(0.35);
+    sizes[i]=24;
+    opas[i]=1;
+
+    Plotly.restyle(gd,{
+      "marker.size":[sizes],
+      "marker.opacity":[opas]
+    });
+
+    const d = ev.points[0].customdata;
+    document.getElementById("info").innerHTML = `
+      <div class="label">단지명</div><div class="value">${d[0]}</div>
+      <div class="label">지역</div><div class="value">${d[1]}</div>
+      <div class="label">가격상승률</div><div class="value">${d[3].toFixed(2)}%</div>
+      <div class="label">연평균 회전률</div><div class="value">${d[4].toFixed(3)}</div>
+      <div class="label">가격 범위</div>
+      <div class="value">
+        최소 ${d[5].toLocaleString()}만원 (${d[7]})<br>
+        최대 ${d[6].toLocaleString()}만원 (${d[8]})
+      </div>
+    `;
+  });
+
+  document.getElementById("searchBox").addEventListener("input",e=>{
+    const q = e.target.value.trim();
+    if(!q){ reset(); return; }
+    const idx = rows.findIndex(r=>r[0].includes(q));
+    if(idx<0) return;
+
+    const sizes = Array(rows.length).fill(8);
+    const opas = Array(rows.length).fill(0.35);
+    sizes[idx]=24;
+    opas[idx]=1;
+
+    Plotly.restyle(gd,{
+      "marker.size":[sizes],
+      "marker.opacity":[opas]
+    });
+  });
+});
+</script>
+</body>
+</html>
